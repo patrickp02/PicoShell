@@ -23,6 +23,7 @@ Script & Networking:
   curl <url>           Fetch and display content from a URL
   ping <host>          Ping a host by domain or IP
   scan                 Scan for local networks 
+  pmap <host>          Nmap-style port scanner that will check for open ports on a designated network
 
 Telnet:
   telnet launch        Start a telnet server.
