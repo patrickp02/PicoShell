@@ -77,8 +77,8 @@ def accept_telnet_connect(telnet_server):
     # dupterm_notify() not available under MicroPython v1.1
     # last_client_socket.setsockopt(socket.SOL_SOCKET, 20, uos.dupterm_notify)
     
-    last_client_socket.sendall(bytes([255, 252, 34])) # dont allow line mode
-    last_client_socket.sendall(bytes([255, 251, 1])) # turn off local echo
+    #last_client_socket.sendall(bytes([255, 252, 34])) # dont allow line mode
+    #last_client_socket.sendall(bytes([255, 251, 1])) # turn off local echo
     
     uos.dupterm(TelnetWrapper(last_client_socket))
 
