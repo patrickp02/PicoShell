@@ -25,6 +25,7 @@
 | `help`, `h`  | Show this help message               |
 | `about`      | Show shell version & system info     |
 | `clear`      | Clear the terminal display           |
+| `exit`       | Exits back to MicroPython            |
 
 ### Filesystem
 
@@ -48,6 +49,7 @@
 | `curl <url>`         | Fetch and display content from URL     |
 | `clone <url> [name]` | Download file from GitHub/raw URL      |
 | `scan`               | Scan nearby Wi-Fi networks             |
+| `pmap <host>`        | Nmap-style port scanner                |
 
 ### Telnet
 
@@ -98,13 +100,13 @@ config.txt          # Wi-Fi credentials (SSID=..., PASSWORD=...)
 
 ### 2. Upload PicoShell Files
 
-- Upload the following files to the root of the Pico filesystem:
+- Upload the following to the root of the Pico filesystem:
 
   - `boot.py`
   - `Main.py`
   - `utils.py`
-  - `utelnetserver.py`
-  - `help.txt`
+  - `telnet`
+  - `docs`
   - `config.txt`
 
 You can use any of the following tools:
