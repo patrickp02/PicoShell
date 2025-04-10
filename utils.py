@@ -262,6 +262,10 @@ def read_temp():
         return temp
     except Exception as e:
         print("ERROR:",e)
+def get_mem():
+    print("Free:", gc.mem_free()/1024, "kilobytes")
+    print("Used:", gc.mem_alloc()/1024, "kilobytes")
+    print("Total:", (gc.mem_alloc() + gc.mem_free())/1024, "kilobytes")
 
 def mkdir(dir):os.mkdir(dir)
 
