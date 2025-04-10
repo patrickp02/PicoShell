@@ -4,20 +4,33 @@ import network
 import platform
 import machine
 import gc
+from machine import Pin
 ###
 bold = "\033[1m"
 green = "\033[32m"
 blue = "\033[34m"
 reset = "\033[0m"
 its = 0 
+led = Pin("LED", Pin.OUT)
+blink = 0
+blinked = False
 sys_info = os.uname()
+
 while True:
-    try:  
+    try:
+        if not blinked: 
+            while blink < 4:
+                led.on()
+                time.sleep(0.2)
+                led.off()
+                time.sleep(0.2)
+                blink += 1
+            blinked = True
         command = input(f"{bold}{green}Pico@{sys_info.sysname}{reset}:{blue}{os.getcwd()}{reset}$ ")
+        
         if command == 'wifi':
             utils.getWifi()
             
-        
         elif command == 'help' or command == 'h':
             try:
                 with open("/docs/help.txt") as f:
