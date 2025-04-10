@@ -35,6 +35,7 @@ System:
   about                Show system version and shell info
   setclock <MHz>       Set the CPU clock speed (allowed range: 40–260 MHz)
   clock                Show the current CPU clock speed
+  temp                 Returns the CPU temperature
 
 Notes:
 - Use raw GitHub URLs when cloning (https://raw.githubusercontent.com/...)
