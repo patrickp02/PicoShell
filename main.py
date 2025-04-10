@@ -17,7 +17,7 @@ while True:
         if command == 'wifi':
             utils.getWifi()
         
-        if its % 5 == 0 and its != 0: 
+        elif its % 5 == 0 and its != 0: 
             gc.collect()
             
         
