@@ -5,6 +5,7 @@ import platform
 import machine
 import gc
 from machine import Pin
+import time
 ###
 bold = "\033[1m"
 green = "\033[32m"
