@@ -22,3 +22,9 @@ try:
 except OSError:
     print("config.txt not found. Skipping Wi-Fi connection.")
 
+try: 
+    print("Starting PicoShell...")
+    time.sleep(2)
+    import main
+except Exception as e:
+    print("Error:",e)
