@@ -121,7 +121,13 @@ def run(script_name):
         if script_name in os.listdir():
             with open(script_name, "r") as file:
                 script_content = file.read()
-                exec(script_content)  # Run the contents of the script
+                code_obj = compile(script_content, script_name,'exec')
+                exec(code_obj, {
+                    "__name__": "__main__",
+                    "input": input,
+                    "print": print,
+                })
+                del code_obj
             
         else:
             print(f"Error: {script_name} not found.")
