@@ -135,7 +135,7 @@ while True:
                                 
         its += 1
 
-        lif its % 5 == 0 and its != 0: 
+        if its % 5 == 0 and its != 0: 
             gc.collect()
 
         #else:
