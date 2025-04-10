@@ -62,7 +62,7 @@ def getWifi():
         
         if state == 'Y' or state == 'y':
             wlan.disconnect()
-            wlan.active(False)     # 💥 Hard disables the Wi-Fi chip
+            wlan.active(False)     # Hard disables the Wi-Fi chip
             time.sleep(1)          # Give it a sec to settle
             wlan.active(True)  
             time.sleep(1)
@@ -101,7 +101,7 @@ def getWifi():
     # Once connected
     if wlan.isconnected():
         print("You're all connected!")
-        print(wlan.ifconfig())  # Print the network configuration (IP address, subnet, etc.)
+        print(wlan.ifconfig())  # Print the network configuration 
 
 def cd(dir):
     try:
