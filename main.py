@@ -129,6 +129,9 @@ while True:
         elif command == 'pwd':
             print(os.getcwd())
 
+        elif command == 'temp':
+            print(f"CPU Temp: {utils.read_temp():.2f} °C")
+
                                 
         its += 1
 
