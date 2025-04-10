@@ -10,6 +10,8 @@ import machine
 from machine import Pin
 
 
+adc = machine.ADC(29)
+conversion_factor = 3.3 / 4095
 wlan = network.WLAN(network.STA_IF)
 led = Pin("LED", Pin.OUT) 
 def auto_connect(ssid,password):
@@ -247,6 +249,13 @@ def blink(times=3, delay=0.2):
         led.toggle()
         time.sleep(delay)
 
+def read_temp():
+    try:
+        raw = adc.read_u16() * conversion_factor
+        temp = (27 - (raw - 0.706) / 0.001721) / 10  
+        return temp
+    except Exception as e:
+        print("ERROR:",e)
 
 def mkdir(dir):os.mkdir(dir)
 
