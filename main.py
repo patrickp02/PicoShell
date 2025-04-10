@@ -136,15 +136,19 @@ while True:
             utils.read(fName)
         
         elif command == 'ram':
-            print("Free:", gc.mem_free()/1024, "kilobytes")
-            print("Used:", gc.mem_alloc()/1024, "kilobytes")
-            print("Total:", (gc.mem_alloc() + gc.mem_free())/1024, "kilobytes")
+            utils.get_mem()
             
         elif command == 'pwd':
             print(os.getcwd())
 
         elif command == 'temp':
             print(f"CPU Temp: {utils.read_temp():.2f} °C")
+
+        elif command == 'freemem':
+            utils.get_mem()
+            gc.collect()
+            print("After Garbage Collection: ")
+            utils.get_mem()
 
                                 
         its += 1
