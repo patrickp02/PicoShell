@@ -36,6 +36,7 @@ System:
   setclock <MHz>       Set the CPU clock speed (allowed range: 40–260 MHz)
   clock                Show the current CPU clock speed
   temp                 Returns the CPU temperature
+  freemem              Force Garbage collection to free as much memory as possible. 
 
 Notes:
 - Use raw GitHub URLs when cloning (https://raw.githubusercontent.com/...)
