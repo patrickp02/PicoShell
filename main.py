@@ -16,9 +16,6 @@ while True:
         command = input(f"{bold}{green}Pico@{sys_info.sysname}{reset}:{blue}{os.getcwd()}{reset}$ ")
         if command == 'wifi':
             utils.getWifi()
-        
-        elif its % 5 == 0 and its != 0: 
-            gc.collect()
             
         
         elif command == 'help' or command == 'h':
@@ -134,6 +131,9 @@ while True:
 
                                 
         its += 1
+
+        lif its % 5 == 0 and its != 0: 
+            gc.collect()
 
         #else:
             #print("Unknown Command")
