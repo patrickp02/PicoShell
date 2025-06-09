@@ -18,12 +18,12 @@ try:
 
         time.sleep(10)
         
-        if wlan.isconnected():
-            print("Connected! Starting telnet...")
-            utelnetserver.start()
+        # if wlan.isconnected():
+        #     print("Connected! Starting telnet...")
+        #     utelnetserver.start()
             
-        else:
-            print("Still trying to connect")
+        # else:
+        #     print("Still trying to connect")
 except OSError:
     print("config.txt not found. Skipping Wi-Fi connection.")
 
