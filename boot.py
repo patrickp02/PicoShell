@@ -1,30 +1,51 @@
-import utils
-import network
 import time
-from telnet import utelnetserver
+import sys
+import os
 
-wlan = network.WLAN(network.STA_IF)
-time.sleep(3)
+def wait_for_usb(timeout=3000):
+    start = time.ticks_ms()
+    while not sys.stdin in (None, sys.stderr):  # Try detecting USB via REPL bound
+        try:
+            try:
+                os.dupterm(sys.stdin)
+            except Exception as e:
+                print("USB REPL bind error (ignored):", e)
+              # Bind USB REPL
+            print("USB ready.")
+            return True
+        except Exception:
+            pass
+        if time.ticks_diff(time.ticks_ms(), start) > timeout:
+            print("USB timeout. Continuing anyway.")
+            return False
+        time.sleep(0.1)
+
+wait_for_usb()
+
+print("Initializing...")
+
 try:
-    with open('config.txt') as f:
-        ssid, password = utils.read_wifi_config('config.txt')
-        utils.auto_connect(ssid, password)
-        print('Initializing...')
+    import utils
+    import network
+    from telnet import utelnetserver
 
-        time.sleep(10)
-        # Comment this out if you want the pico to be accessible via telnet on boot. WARNING this removes the ability to access it via usb 
-        # if wlan.isconnected():
-        #     print("Connected! Starting telnet...")
-        #     utelnetserver.start()
-            
-        # else:
-        #     print("Still trying to connect")
-except OSError:
-    print("config.txt not found. Skipping Wi-Fi connection.")
-
-try: 
-    print("Starting PicoShell...")
     time.sleep(2)
+
+    ssid, password = utils.read_wifi_config("config.txt")
+    utils.auto_connect(ssid, password)
+    time.sleep(5)
+
+    if network.WLAN(network.STA_IF).isconnected():
+        print("Wi-Fi connected. Starting Telnet.")
+        utelnetserver.start()
+    else:
+        print("Wi-Fi not connected.")
+
+except Exception as e:
+    print("Boot error:", e)
+
+# Defer all CLI/interactive logic to main.py
+try:
     import main
 except Exception as e:
-    print("Error:",e)
+    print("Main failed:", e)
