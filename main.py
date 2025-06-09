@@ -17,7 +17,7 @@ try:
         print('Initializing...')
 
         time.sleep(10)
-        
+        # Comment this out for auto telnet connect. Once you do this USB access via the REPL will no longer work, only telnet access
         # if wlan.isconnected():
         #     print("Connected! Starting telnet...")
         #     utelnetserver.start()
