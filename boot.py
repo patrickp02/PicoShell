@@ -22,29 +22,8 @@ def wait_for_usb(timeout=3000):
 
 wait_for_usb()
 
-print("Initializing...")
 
-try:
-    import utils
-    import network
-    from telnet import utelnetserver
 
-    time.sleep(2)
-
-    ssid, password = utils.read_wifi_config("config.txt")
-    utils.auto_connect(ssid, password)
-    time.sleep(5)
-
-    if network.WLAN(network.STA_IF).isconnected():
-        print("Wi-Fi connected. Starting Telnet.")
-        utelnetserver.start()
-    else:
-        print("Wi-Fi not connected.")
-
-except Exception as e:
-    print("Boot error:", e)
-
-# Defer all CLI/interactive logic to main.py
 try:
     import main
 except Exception as e:
