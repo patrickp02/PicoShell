@@ -12,13 +12,13 @@ try:
         print('Initializing...')
 
         time.sleep(10)
-        
-        if wlan.isconnected():
-            print("Connected! Starting telnet...")
-            utelnetserver.start()
+        # Comment this out if you want the pico to be accessible via telnet on boot. WARNING this removes the ability to access it via usb 
+        # if wlan.isconnected():
+        #     print("Connected! Starting telnet...")
+        #     utelnetserver.start()
             
-        else:
-            print("Still trying to connect")
+        # else:
+        #     print("Still trying to connect")
 except OSError:
     print("config.txt not found. Skipping Wi-Fi connection.")
 
