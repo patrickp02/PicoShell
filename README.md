@@ -8,7 +8,9 @@
 
 - Interactive shell over USB serial or Telnet
 - Headless operation with automatic Telnet startup after Wi-Fi connects
-- Persistent Wi-Fi/Telnet configuration through `config.txt`
+- Automatic fallback access point when the configured Wi-Fi is unavailable
+- Wi-Fi credential setup over Telnet from a phone or laptop
+- Persistent Wi-Fi/Telnet/AP configuration through `config.txt`
 - Filesystem navigation and file manipulation
 - Python script execution from Pico storage
 - HTTP/HTTPS file download and basic network tools
@@ -59,7 +61,8 @@
 | Command | Description |
 |---|---|
 | `wifi` | Scan/connect to Wi-Fi or disconnect from the current network |
-| `ifconfig` | Show network interface configuration |
+| `wifi setup` | Save a new SSID/password to `config.txt` for the next reboot |
+| `ifconfig` | Show station and active access-point network configuration |
 | `scan` | Scan nearby Wi-Fi networks |
 | `ping <host>` | TCP-connect reachability/latency test using port 80 |
 | `curl <url>` | Fetch and display content from a URL |
@@ -115,13 +118,51 @@ Create `config.txt` in the Pico root directory:
 SSID=Your WiFi Name
 PASSWORD=YourPassword
 TELNET_AUTO=1
+AP_FALLBACK=1
+AP_PASSWORD=picoshell
 ```
 
 `TELNET_AUTO=1` starts the Telnet listener automatically after Wi-Fi connects, which allows the Pico to run headless with only power connected. Set it to `0` if you want Telnet to remain off until `telnet launch` is entered manually.
 
-Existing configurations without `TELNET_AUTO` remain compatible; PicoShell defaults to automatic Telnet startup.
+`AP_FALLBACK=1` enables the lightweight recovery/setup access point. `AP_PASSWORD` sets its WPA2 password and must be 8-63 characters.
+
+Existing configurations without the AP options remain compatible. PicoShell defaults to AP fallback enabled with the password `picoshell`.
 
 The SSID may contain spaces. Do not wrap the SSID or password in quotes. The Pico 2 W uses 2.4 GHz Wi-Fi.
+
+## Fallback AP setup
+
+If `config.txt` has no SSID, is missing, or the Pico cannot join the saved network within about 13 seconds, PicoShell disables the failed station connection and creates its own WPA2 access point.
+
+The SSID is generated from the device ID so nearby PicoShell devices can be distinguished:
+
+```text
+PicoShell-XXXXXX
+```
+
+With the default configuration:
+
+```text
+Password: picoshell
+IP:       192.168.4.1
+Telnet:   TCP/23
+```
+
+Connect a phone or laptop to the PicoShell SSID, then Telnet to `192.168.4.1`. From PicoShell run:
+
+```text
+wifi setup
+```
+
+Enter the real Wi-Fi SSID and password when prompted, then:
+
+```text
+reboot
+```
+
+PicoShell will try the saved network on the next boot. If the credentials or network are still unavailable, the fallback AP returns so the board is not stranded.
+
+Telnet is plaintext. The fallback AP itself uses WPA2, but do not expose TCP/23 directly to the public internet.
 
 ## Self-update
 
@@ -143,7 +184,7 @@ docs/help.txt
 version.txt
 ```
 
-`config.txt` is intentionally **not** updated so an OTA update cannot overwrite Wi-Fi credentials or local settings.
+`config.txt` is intentionally **not** updated so an OTA update cannot overwrite Wi-Fi credentials or local settings. Existing installations therefore get the fallback AP defaults even if their older `config.txt` does not contain the new AP keys.
 
 ### Upgrading from v0.2.0
 
@@ -163,9 +204,9 @@ exit
 
 ```text
 boot.py                  # Minimal USB-safe boot script
-main.py                  # CLI, command handlers, dispatcher, Wi-Fi/Telnet startup
+main.py                  # CLI, command handlers, Wi-Fi/AP/Telnet startup
 utils.py                 # Filesystem, networking, GPIO/I2C, updater, and system helpers
-config.txt               # Wi-Fi credentials and TELNET_AUTO setting
+config.txt               # Wi-Fi, Telnet, and AP fallback settings
 docs/
   help.txt               # Built-in help text
 telnet/
@@ -180,9 +221,9 @@ PicoShell targets the **Raspberry Pi Pico 2 W**.
 
 1. Flash the current Pico 2 W MicroPython UF2.
 2. Copy `boot.py`, `main.py`, `utils.py`, `config.txt`, `version.txt`, `docs/`, and `telnet/` to the Pico filesystem.
-3. Fill in `config.txt`.
+3. Either fill in `config.txt` before boot or leave `SSID` blank to use fallback AP setup.
 4. Reset the Pico.
-5. PicoShell connects to Wi-Fi, starts Telnet when enabled, and starts the shell.
+5. With valid credentials, PicoShell joins Wi-Fi and starts Telnet. Otherwise it broadcasts a `PicoShell-XXXXXX` setup network.
 
 Example prompt:
 
@@ -190,7 +231,7 @@ Example prompt:
 Pico@rp2:/$
 ```
 
-For a headless installation, power the Pico normally and connect to its IP address on TCP port 23 after it joins Wi-Fi.
+For a headless installation, power the Pico normally and connect to TCP port 23 after it joins Wi-Fi, or use the fallback AP directly from a phone/laptop.
 
 ## v0.2.1 changes
 
@@ -207,9 +248,17 @@ For a headless installation, power the Pico normally and connect to its IP addre
 - Added `telnet/utelnetserver.py` to the OTA update set.
 - Added a one-time v0.2.1 migration so existing boards can fetch the new Telnet server even though the older updater did not include it.
 
+## v0.3.0 changes
+
+- Added automatic WPA2 fallback AP mode when saved Wi-Fi cannot be reached.
+- Added a unique `PicoShell-XXXXXX` setup SSID and fixed setup IP `192.168.4.1`.
+- Added `wifi setup` to save new Wi-Fi credentials from a Telnet session.
+- Added `AP_FALLBACK` and `AP_PASSWORD` configuration options.
+- Extended `ifconfig` to show the active AP interface.
+
 ## Version
 
-Current version: **0.2.2**
+Current version: **0.3.0**
 
 ## License
 
