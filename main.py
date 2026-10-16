@@ -135,7 +135,11 @@ def start_fallback_ap():
 
     try:
         ap.active(False)
-        ap.config(ssid=ssid, security=3, key=password)
+        ap.config(
+            ssid=ssid,
+            security=network.WLAN.SEC_WPA_WPA2,
+            key=password,
+        )
         ap.active(True)
         ap.ifconfig(AP_IP_CONFIG)
         time.sleep_ms(250)
