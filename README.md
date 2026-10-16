@@ -1,15 +1,16 @@
 # PicoShell
 
-**PicoShell** is a lightweight UNIX-style command shell for the **Raspberry Pi Pico 2 W (RP2350)**, written in MicroPython. It provides filesystem tools, Wi-Fi/network utilities, Telnet access, script execution, GPIO/I2C controls, system monitoring, CPU clock control, and a built-in self-updater.
+**PicoShell** is a lightweight UNIX-style command shell for the **Raspberry Pi Pico 2 W (RP2350)** written in MicroPython. It provides filesystem tools, Wi-Fi/network utilities, Telnet access, script execution, GPIO/I2C controls, system monitoring, CPU clock control, and a built-in self-updater.
 
 ![PicoShell Screenshot](pico-shell.png)
 
 ## Features
 
 - Interactive shell over USB serial or Telnet
-- Wi-Fi connection using a simple persistent `config.txt`
+- Headless operation with automatic Telnet startup after Wi-Fi connects
+- Persistent Wi-Fi/Telnet configuration through `config.txt`
 - Filesystem navigation and file manipulation
-- Python script execution directly from Pico storage
+- Python script execution from Pico storage
 - HTTP/HTTPS file download and basic network tools
 - TCP port scanning
 - GPIO read/write/mode control
@@ -17,7 +18,8 @@
 - RAM, storage, uptime, temperature, and CPU clock information
 - RP2350 CPU clock adjustment from the shell
 - Transactional self-update system using GitHub
-- `Ctrl+C` / `exit` support to return cleanly to the MicroPython REPL for Thonny access
+- `Ctrl+C` / `exit` support to return to the MicroPython REPL for Thonny
+- USB-safe boot flow: `boot.py` no longer takes ownership of the REPL or manually imports `main.py`
 
 ## Commands
 
@@ -52,13 +54,7 @@
 | `write <file> <text>` | Overwrite a file with text |
 | `append <file> <text>` | Append a line of text to a file |
 
-### Scripts
-
-| Command | Description |
-|---|---|
-| `run <file.py>` | Execute a Python script from Pico storage |
-
-### Networking
+### Networking / Telnet
 
 | Command | Description |
 |---|---|
@@ -69,17 +65,16 @@
 | `curl <url>` | Fetch and display content from a URL |
 | `clone <url> [name]` | Download a file over HTTPS; raw GitHub URLs are supported |
 | `pmap <host> [start] [end]` | Scan a TCP port range; default is 1-1024 |
-
-> `ping` is currently a TCP connection timing test, not an ICMP echo implementation.
-
-### Telnet
-
-| Command | Description |
-|---|---|
 | `telnet launch` | Start the Telnet server |
 | `telnet stop` | Stop the Telnet server |
 
-Telnet can also be enabled automatically after Wi-Fi connects by uncommenting the Telnet startup lines in `main.py`.
+> `ping` is currently a TCP connection timing test, not an ICMP echo implementation.
+
+### Scripts
+
+| Command | Description |
+|---|---|
+| `run <file.py>` | Execute a Python script from Pico storage |
 
 ### System
 
@@ -93,8 +88,6 @@ Telnet can also be enabled automatically after Wi-Fi connects by uncommenting th
 | `setclock <MHz>` | Set CPU frequency; PicoShell currently allows >40 MHz and <260 MHz |
 | `temp` | Show the current temperature reading |
 | `blink [times] [delay]` | Blink the onboard LED |
-
-> CPU overclocking can cause instability. Use `setclock` at your own risk.
 
 ### GPIO / I2C
 
@@ -114,118 +107,81 @@ gpio read 15
 i2c scan 0 0 1 400000
 ```
 
-### Self-update
-
-| Command | Description |
-|---|---|
-| `update check` | Compare the installed version against `version.txt` on GitHub |
-| `update install` | Download and install a newer version, then reboot |
-
-The updater downloads the new files first, stages them as `.new`, backs up the currently installed files as `.bak`, and only then swaps the new files into place. If installation fails during replacement, it attempts to roll the previous files back.
-
-## Project Structure
-
-```text
-boot.py                  # Starts PicoShell at boot
-main.py                  # CLI, command handlers, and dispatcher
-utils.py                 # Filesystem, networking, GPIO/I2C, updater, and system helpers
-config.txt               # Wi-Fi credentials
-docs/
-  help.txt               # Built-in help text
-telnet/
-  utelnetserver.py       # Lightweight Telnet server
-version.txt              # Current PicoShell version
-pico-shell.png           # README screenshot
-```
-
-## Getting Started
-
-### 1. Flash MicroPython
-
-PicoShell targets the **Raspberry Pi Pico 2 W**, not the original Pico W or non-wireless Pico 2.
-
-Download the current MicroPython firmware for the Pico 2 W from:
-
-https://micropython.org/download/RPI_PICO2_W/
-
-Then:
-
-1. Hold **BOOTSEL** while connecting the Pico 2 W to your computer.
-2. The board will appear as an `RP2350` USB drive.
-3. Copy the MicroPython `.uf2` file onto that drive.
-4. The Pico will reboot into MicroPython.
-
-### 2. Upload PicoShell
-
-Copy these files/directories to the Pico filesystem:
-
-```text
-boot.py
-main.py
-utils.py
-config.txt
-version.txt
-docs/
-telnet/
-```
-
-### Thonny
-
-1. Open [Thonny](https://thonny.org).
-2. Select **MicroPython (Raspberry Pi Pico)** as the interpreter.
-3. Upload the PicoShell files to the Pico filesystem.
-4. Reset the board.
-
-If PicoShell is running and Thonny cannot access the filesystem, press **Ctrl+C** or enter:
-
-```text
-exit
-```
-
-PicoShell will stop and return control to the normal MicroPython `>>>` REPL so Thonny can use the filesystem again.
-
-### mpremote
-
-Example on Linux/macOS:
-
-```bash
-mpremote connect /dev/ttyACM0 fs cp boot.py :boot.py
-mpremote connect /dev/ttyACM0 fs cp main.py :main.py
-mpremote connect /dev/ttyACM0 fs cp utils.py :utils.py
-mpremote connect /dev/ttyACM0 fs cp config.txt :config.txt
-mpremote connect /dev/ttyACM0 fs cp version.txt :version.txt
-mpremote connect /dev/ttyACM0 fs cp -r docs :docs
-mpremote connect /dev/ttyACM0 fs cp -r telnet :telnet
-```
-
-Replace the device path with your actual serial device, such as `COM3` on Windows.
-
-## Wi-Fi Configuration
+## Configuration
 
 Create `config.txt` in the Pico root directory:
 
 ```text
 SSID=Your WiFi Name
 PASSWORD=YourPassword
+TELNET_AUTO=1
 ```
 
-The SSID may contain spaces. Do not wrap the SSID or password in quotes.
+`TELNET_AUTO=1` starts the Telnet listener automatically after Wi-Fi connects, which allows the Pico to run headless with only power connected. Set it to `0` if you want Telnet to remain off until `telnet launch` is entered manually.
 
-The Pico 2 W supports **2.4 GHz Wi-Fi only**. If your router uses one SSID for both 2.4 GHz and 5 GHz, the Pico will connect using the 2.4 GHz radio.
+Existing configurations without `TELNET_AUTO` remain compatible; PicoShell defaults to automatic Telnet startup.
 
-## Running PicoShell
+The SSID may contain spaces. Do not wrap the SSID or password in quotes. The Pico 2 W uses 2.4 GHz Wi-Fi.
 
-After reset or power-on:
+## Self-update
 
-1. `boot.py` imports `main.py`.
-2. PicoShell reads `config.txt`.
-3. It attempts to connect to Wi-Fi.
-4. The interactive shell starts over the USB REPL.
-5. Telnet can be started with:
+| Command | Description |
+|---|---|
+| `update check` | Compare the installed version against `version.txt` on GitHub |
+| `update install` | Download and install a newer version, then reboot |
+
+`version.txt` is the single source of truth for the installed PicoShell version.
+
+The updater stages all new files as `.new`, backs up the installed copies as `.bak`, and swaps them only after every download succeeds. Current update targets are:
 
 ```text
-telnet launch
+main.py
+utils.py
+boot.py
+docs/help.txt
+version.txt
 ```
+
+`config.txt` is intentionally **not** updated so an OTA update cannot overwrite Wi-Fi credentials or local settings.
+
+### Upgrading from v0.2.0
+
+The v0.2.0 updater did not include `boot.py` in its update list. v0.2.1 includes a startup migration that replaces the older REPL-binding `boot.py` with a minimal USB-safe file. Future updates also update `boot.py` directly.
+
+## Boot / USB behavior
+
+`boot.py` is intentionally minimal. MicroPython initializes the built-in USB REPL and automatically runs `main.py` after `boot.py`; PicoShell does not need to bind `sys.stdin` with `dupterm()` or manually `import main` from `boot.py`.
+
+If PicoShell is running and Thonny needs the raw REPL, press **Ctrl+C** or enter:
+
+```text
+exit
+```
+
+## Project Structure
+
+```text
+boot.py                  # Minimal USB-safe boot script
+main.py                  # CLI, command handlers, dispatcher, Wi-Fi/Telnet startup
+utils.py                 # Filesystem, networking, GPIO/I2C, updater, and system helpers
+config.txt               # Wi-Fi credentials and TELNET_AUTO setting
+docs/
+  help.txt               # Built-in help text
+telnet/
+  utelnetserver.py       # Lightweight Telnet server
+version.txt              # Installed PicoShell version (single source of truth)
+pico-shell.png           # README screenshot
+```
+
+## Getting Started
+
+PicoShell targets the **Raspberry Pi Pico 2 W**.
+
+1. Flash the current Pico 2 W MicroPython UF2.
+2. Copy `boot.py`, `main.py`, `utils.py`, `config.txt`, `version.txt`, `docs/`, and `telnet/` to the Pico filesystem.
+3. Fill in `config.txt`.
+4. Reset the Pico.
+5. PicoShell connects to Wi-Fi, starts Telnet when enabled, and starts the shell.
 
 Example prompt:
 
@@ -233,25 +189,11 @@ Example prompt:
 Pico@rp2:/$
 ```
 
-## Updating PicoShell
-
-Once PicoShell is installed, future updates can be checked directly from the board:
-
-```text
-update check
-```
-
-If a newer version is available:
-
-```text
-update install
-```
-
-The updater pulls the current files from the `main` branch of this repository and reboots after a successful install.
+For a headless installation, power the Pico normally and connect to its IP address on TCP port 23 after it joins Wi-Fi.
 
 ## Version
 
-Current version: **0.2.0**
+Current version: **0.2.1**
 
 ## License
 

@@ -10,7 +10,82 @@ import utils
 from telnet import utelnetserver
 
 
-PICOSHELL_VERSION = "0.2.0"
+SAFE_BOOT_MARKER = "# PicoShell safe boot.py"
+SAFE_BOOT_CONTENT = """# PicoShell safe boot.py
+#
+# Intentionally minimal. MicroPython initializes the built-in USB REPL and
+# then runs main.py automatically. Do not bind sys.stdin with dupterm here
+# and do not import main manually.
+"""
+
+
+def read_local_version(path="version.txt"):
+    try:
+        with open(path, "r") as f:
+            version = f.read().strip()
+        return version if version else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def read_config_option(filename, key, default=None):
+    try:
+        with open(filename, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                current_key, value = line.split("=", 1)
+                if current_key.strip() == key:
+                    return value.strip()
+    except OSError:
+        return default
+    return default
+
+
+def config_bool(value, default=False):
+    if value is None:
+        return default
+
+    value = str(value).strip().lower()
+    if value in ("1", "true", "yes", "on", "y"):
+        return True
+    if value in ("0", "false", "no", "off", "n"):
+        return False
+    return default
+
+
+def ensure_safe_boot_file(path="boot.py"):
+    """Replace old PicoShell boot.py files that interfered with USB REPL."""
+    try:
+        with open(path, "r") as f:
+            current = f.read()
+        if SAFE_BOOT_MARKER in current:
+            return False
+    except OSError:
+        pass
+
+    try:
+        with open(path, "w") as f:
+            f.write(SAFE_BOOT_CONTENT)
+        print("Migrated boot.py to USB-safe boot configuration.")
+        return True
+    except Exception as e:
+        print("Could not migrate boot.py:", e)
+        return False
+
+
+# v0.2.0's updater did not include boot.py. Patch the updater list at runtime
+# so v0.2.1 and later releases update the boot script too.
+utils.UPDATE_FILES = (
+    "main.py",
+    "utils.py",
+    "boot.py",
+    "docs/help.txt",
+    "version.txt",
+)
+
+PICOSHELL_VERSION = read_local_version()
 SHELL_START_MS = time.ticks_ms()
 
 # ANSI prompt colors
@@ -27,9 +102,13 @@ _command_count = 0
 
 
 def init_network():
-    """Connect using config.txt if it exists."""
+    """Connect using config.txt and optionally start Telnet for headless use."""
     try:
         ssid, password = utils.read_wifi_config("config.txt")
+        telnet_auto = config_bool(
+            read_config_option("config.txt", "TELNET_AUTO", "1"),
+            True,
+        )
     except OSError:
         print("config.txt not found. Skipping Wi-Fi connection.")
         return
@@ -51,9 +130,14 @@ def init_network():
 
     print("Wi-Fi connected:", wlan.ifconfig()[0])
 
-    # Uncomment if you want Telnet to auto-start after Wi-Fi:
-    # print("Starting telnet...")
-    # utelnetserver.start()
+    if telnet_auto:
+        try:
+            print("Starting Telnet server...")
+            utelnetserver.start()
+        except Exception as e:
+            print("Telnet auto-start failed:", e)
+    else:
+        print("Telnet auto-start disabled in config.txt")
 
 
 def startup_blink(times=4, delay=0.2):
@@ -207,7 +291,6 @@ def cmd_touch(argline):
 
 
 def cmd_tree(argline):
-    # tree [path] [max_depth]
     path = "."
     max_depth = 8
 
@@ -380,7 +463,6 @@ def cmd_gpio(argline):
 
 
 def cmd_i2c(argline):
-    # Explicit pins avoid guessing which I2C mapping the user wired.
     if not require_arg(
         argline,
         "i2c scan <bus> <sda_pin> <scl_pin> [freq_hz]"
@@ -405,8 +487,6 @@ def cmd_i2c(argline):
 
 
 def cmd_update(argline):
-    # Uses version.txt as a guard so an old repo cannot silently downgrade
-    # this test build. Until version.txt exists on GitHub, update safely stops.
     action = argline.strip().lower() if argline else "check"
 
     if action == "check":
@@ -514,5 +594,6 @@ def run_shell():
             print("CLI ERROR:", e)
 
 
+ensure_safe_boot_file()
 init_network()
 run_shell()

@@ -49,6 +49,8 @@ Wi-Fi / Networking:
   telnet launch
   telnet stop
       Start or stop the Telnet server.
+      Telnet auto-starts after Wi-Fi by default for headless use.
+      Set TELNET_AUTO=0 in config.txt to disable auto-start.
 
 Filesystem:
   pwd
@@ -144,8 +146,9 @@ Updater:
   update install
       Transactionally download a newer PicoShell version and reboot.
 
-      Updates are downloaded to temporary files first and installed only
-      after every download succeeds.
+      Updates include main.py, utils.py, boot.py, docs/help.txt and
+      version.txt. Updates are downloaded to temporary files first and
+      installed only after every download succeeds.
 
 Development:
   exit
