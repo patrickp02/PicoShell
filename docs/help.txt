@@ -26,8 +26,13 @@ Wi-Fi / Networking:
   wifi
       Scan/connect to Wi-Fi, or disconnect from the current network.
 
+  wifi setup
+      Save a new Wi-Fi SSID/password to config.txt.
+      Useful after connecting to the PicoShell fallback access point.
+      Run reboot afterward to try the saved network.
+
   ifconfig
-      Show network interface configuration.
+      Show station and active access-point interface configuration.
 
   scan
       Scan nearby Wi-Fi networks.
@@ -51,6 +56,27 @@ Wi-Fi / Networking:
       Start or stop the Telnet server.
       Telnet auto-starts after Wi-Fi by default for headless use.
       Set TELNET_AUTO=0 in config.txt to disable auto-start.
+
+Fallback AP:
+  If the saved Wi-Fi network is missing or cannot be joined within about
+  13 seconds, PicoShell can start its own WPA2 setup network.
+
+  Default SSID:
+      PicoShell-XXXXXX
+
+  Default password:
+      picoshell
+
+  Default IP:
+      192.168.4.1
+
+  Connect a phone/laptop to that SSID, then Telnet to 192.168.4.1 and run:
+      wifi setup
+      reboot
+
+  AP_FALLBACK=0 disables this behavior.
+  AP_PASSWORD=<8-63 chars> changes the fallback AP password.
+  TELNET_AUTO must be enabled for Telnet to auto-start on the fallback AP.
 
 Filesystem:
   pwd
@@ -146,9 +172,9 @@ Updater:
   update install
       Transactionally download a newer PicoShell version and reboot.
 
-      Updates include main.py, utils.py, boot.py, docs/help.txt and
-      version.txt. Updates are downloaded to temporary files first and
-      installed only after every download succeeds.
+      Updates include main.py, utils.py, boot.py, telnet/utelnetserver.py,
+      docs/help.txt and version.txt. Updates are downloaded to temporary files
+      first and installed only after every download succeeds.
 
 Development:
   exit
