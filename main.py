@@ -75,12 +75,78 @@ def ensure_safe_boot_file(path="boot.py"):
         return False
 
 
-# v0.2.0's updater did not include boot.py. Patch the updater list at runtime
-# so v0.2.1 and later releases update the boot script too.
+TELNET_SERVER_MARKER = 'PICOSHELL_TELNET_VERSION = "0.2.2"'
+
+
+def ensure_current_telnet_server(path="telnet/utelnetserver.py"):
+    """One-time v0.2.1 migration so OTA can begin updating Telnet itself."""
+    try:
+        with open(path, "r") as f:
+            current = f.read()
+        if TELNET_SERVER_MARKER in current:
+            return False
+    except OSError:
+        pass
+
+    staged = path + ".new"
+    backup = path + ".bak"
+    url = utils.UPDATE_BASE + "/telnet/utelnetserver.py"
+
+    try:
+        print("Updating Telnet server...")
+        utils.download_file(url, staged)
+
+        with open(staged, "r") as f:
+            staged_text = f.read()
+        if TELNET_SERVER_MARKER not in staged_text:
+            raise ValueError("Downloaded Telnet server is not the expected version")
+
+        try:
+            os.remove(backup)
+        except Exception:
+            pass
+
+        had_old = False
+        try:
+            os.stat(path)
+            os.rename(path, backup)
+            had_old = True
+        except OSError:
+            pass
+
+        try:
+            os.rename(staged, path)
+        except Exception:
+            if had_old:
+                try:
+                    os.rename(backup, path)
+                except Exception:
+                    pass
+            raise
+
+        if had_old:
+            try:
+                os.remove(backup)
+            except Exception:
+                pass
+
+        print("Telnet server updated. Restarting to load it...")
+        return True
+
+    except Exception as e:
+        print("Telnet server migration failed:", e)
+        try:
+            os.remove(staged)
+        except Exception:
+            pass
+        return False
+
+
 utils.UPDATE_FILES = (
     "main.py",
     "utils.py",
     "boot.py",
+    "telnet/utelnetserver.py",
     "docs/help.txt",
     "version.txt",
 )
@@ -88,7 +154,6 @@ utils.UPDATE_FILES = (
 PICOSHELL_VERSION = read_local_version()
 SHELL_START_MS = time.ticks_ms()
 
-# ANSI prompt colors
 BOLD = "\033[1m"
 GREEN = "\033[32m"
 BLUE = "\033[34m"
@@ -130,6 +195,10 @@ def init_network():
 
     print("Wi-Fi connected:", wlan.ifconfig()[0])
 
+    if ensure_current_telnet_server():
+        time.sleep_ms(300)
+        machine.reset()
+
     if telnet_auto:
         try:
             print("Starting Telnet server...")
@@ -168,7 +237,6 @@ def require_arg(argline, usage):
 
 
 def split_path_and_text(argline, usage):
-    """Split '<path> <text...>' while preserving spaces in the text."""
     if not argline:
         print("Usage:", usage)
         return None, None
@@ -194,8 +262,6 @@ def format_uptime(ms):
         return "{}d {:02d}:{:02d}:{:02d}".format(days, hours, minutes, seconds)
     return "{:02d}:{:02d}:{:02d}".format(hours, minutes, seconds)
 
-
-# ---------- command handlers ----------
 
 def cmd_help(argline):
     try:
@@ -327,11 +393,9 @@ def cmd_run(argline):
 def cmd_clone(argline):
     if not require_arg(argline, "clone <url> [name]"):
         return
-
     args = argline.split()
     url = args[0]
     filename = args[1] if len(args) > 1 else url.rsplit("/", 1)[-1]
-
     print("Downloading {} from {}".format(filename, url))
     utils.download_file(url, filename)
 
@@ -353,17 +417,14 @@ def cmd_scan(argline):
 def cmd_pmap(argline):
     if not require_arg(argline, "pmap <host> [start] [end]"):
         return
-
     parts = argline.split()
     host = parts[0]
-
     try:
         start = int(parts[1]) if len(parts) > 1 else 1
         end = int(parts[2]) if len(parts) > 2 else 1024
     except ValueError:
         print("Ports must be integers.")
         return
-
     utils.scan_ports(host, start, end)
 
 
@@ -398,13 +459,11 @@ def cmd_clock(argline):
 def cmd_setclock(argline):
     if not require_arg(argline, "setclock <MHz>"):
         return
-
     try:
         mhz = int(argline)
     except ValueError:
         print("Clock speed must be an integer.")
         return
-
     utils.overclock(mhz)
 
 
@@ -418,7 +477,6 @@ def cmd_blink(argline):
     if not argline:
         utils.blink()
         return
-
     parts = argline.split()
     try:
         times = int(parts[0])
@@ -429,51 +487,35 @@ def cmd_blink(argline):
 
 
 def cmd_gpio(argline):
-    if not require_arg(
-        argline,
-        "gpio <read PIN | write PIN 0|1 | mode PIN in|out|pullup|pulldown>"
-    ):
+    if not require_arg(argline, "gpio <read PIN | write PIN 0|1 | mode PIN in|out|pullup|pulldown>"):
         return
-
     parts = argline.split()
     action = parts[0].lower()
-
     try:
         if action == "read" and len(parts) == 2:
             pin = int(parts[1])
             print(utils.gpio_read(pin))
-
         elif action == "write" and len(parts) == 3:
             pin = int(parts[1])
             value = int(parts[2])
             utils.gpio_write(pin, value)
-
         elif action == "mode" and len(parts) == 3:
             pin = int(parts[1])
             mode = parts[2].lower()
             utils.gpio_mode(pin, mode)
-
         else:
-            print(
-                "Usage: gpio <read PIN | write PIN 0|1 | "
-                "mode PIN in|out|pullup|pulldown>"
-            )
+            print("Usage: gpio <read PIN | write PIN 0|1 | mode PIN in|out|pullup|pulldown>")
     except ValueError:
         print("GPIO pin/value must be an integer where required.")
 
 
 def cmd_i2c(argline):
-    if not require_arg(
-        argline,
-        "i2c scan <bus> <sda_pin> <scl_pin> [freq_hz]"
-    ):
+    if not require_arg(argline, "i2c scan <bus> <sda_pin> <scl_pin> [freq_hz]"):
         return
-
     parts = argline.split()
     if len(parts) not in (4, 5) or parts[0].lower() != "scan":
         print("Usage: i2c scan <bus> <sda_pin> <scl_pin> [freq_hz]")
         return
-
     try:
         bus = int(parts[1])
         sda_pin = int(parts[2])
@@ -482,13 +524,11 @@ def cmd_i2c(argline):
     except ValueError:
         print("Bus, pins, and frequency must be integers.")
         return
-
     utils.i2c_scan(bus, sda_pin, scl_pin, freq)
 
 
 def cmd_update(argline):
     action = argline.strip().lower() if argline else "check"
-
     if action == "check":
         utils.update_check(PICOSHELL_VERSION)
     elif action == "install":
@@ -556,40 +596,29 @@ COMMANDS = {
 
 def run_shell():
     global _command_count
-
     startup_blink()
-
     while True:
         try:
             line = input(prompt()).strip()
-
             if not line:
                 continue
-
             parts = line.split(None, 1)
             command = parts[0].lower()
             argline = parts[1].strip() if len(parts) > 1 else ""
-
             if command == "exit":
                 print("Leaving PicoShell.")
                 break
-
             handler = COMMANDS.get(command)
-
             if handler is None:
                 print("Unknown command:", command)
                 continue
-
             handler(argline)
-
             _command_count += 1
             if _command_count % 5 == 0:
                 gc.collect()
-
         except KeyboardInterrupt:
             print("\nPicoShell stopped. Returning to MicroPython REPL.")
             break
-
         except Exception as e:
             print("CLI ERROR:", e)
 
