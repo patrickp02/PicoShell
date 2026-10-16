@@ -1,43 +1,156 @@
-Available Commands:
+PicoShell Commands
 
-  help, h              Show this help message
-  wifi                 Manually scan and connect to a Wi-Fi network
-  ifconfig             Show network interface configuration (IP address, etc.)
-  sysinfo              Display system info
-  dspace               Shows the available disk space on the device
-  ram                  Shows the current RAM usage
+General:
+  help, h
+      Show this help message.
 
-Filesystem Commands:
-  pwd                  Print the current working directory
-  ls                   List files and directories
-  cd <dir>             Change current directory
-  mkdir <dir>          Create a new directory
-  rmdir <dir>          Remove a directory
-  rm <file>            Delete a file
-  read <file>          Prints the contents of a file 
-  
+  clear
+      Clear the terminal.
 
-Script & Networking:
-  run <file.py>        Execute a Python script from storage
-  clone <url> [name]   Download a .py or .txt file from the internet (GitHub raw supported)
-  curl <url>           Fetch and display content from a URL
-  ping <host>          Ping a host by domain or IP
-  scan                 Scan for local networks 
-  pmap <host>          Nmap-style port scanner that will check for open ports on a designated network
+  about
+      Show PicoShell version and platform information.
 
-Telnet:
-  telnet launch        Start a telnet server.
-  telnet stop          Stop the telnet server.
-                       Note: Telnet is started by default if the device is able to successfully connect to Wifi.
+  version
+      Show the PicoShell version.
+
+  uptime
+      Show time since PicoShell started.
+
+  reboot
+      Hard reset the Pico.
+
+  reset
+      Soft reset MicroPython.
+
+Wi-Fi / Networking:
+  wifi
+      Scan/connect to Wi-Fi, or disconnect from the current network.
+
+  ifconfig
+      Show network interface configuration.
+
+  scan
+      Scan nearby Wi-Fi networks.
+
+  ping <host>
+      TCP-connect latency/reachability test using port 80.
+
+  curl <url>
+      Fetch and display a URL.
+
+  clone <url> [name]
+      Download a file from an HTTPS URL.
+      Raw GitHub URLs are supported.
+
+  pmap <host> [start] [end]
+      Scan a TCP port range.
+      Default range: 1-1024.
+
+  telnet launch
+  telnet stop
+      Start or stop the Telnet server.
+
+Filesystem:
+  pwd
+      Show current directory.
+
+  ls [path]
+      List files and directories.
+
+  cd <dir>
+      Change current directory.
+
+  mkdir <dir>
+      Create a directory.
+
+  rmdir <dir>
+      Remove an empty directory.
+
+  rm <file>
+      Remove a file.
+
+  read <file>
+      Print a text file.
+
+  cp <source> <destination>
+      Copy a file.
+
+  mv <source> <destination>
+      Move or rename a file.
+
+  touch <file>
+      Create a file if it does not exist.
+
+  tree [path] [max_depth]
+      Recursively show the directory tree.
+      Default path: .
+      Default max depth: 8
+
+  write <file> <text>
+      Overwrite a file with text.
+
+  append <file> <text>
+      Append one line of text to a file.
+
+Scripts:
+  run <file.py>
+      Execute a Python script from storage.
 
 System:
-  clear                Clear the screen
-  about                Show system version and shell info
-  setclock <MHz>       Set the CPU clock speed (allowed range: 40–260 MHz)
-  clock                Show the current CPU clock speed
-  temp                 Returns the CPU temperature
-  freemem              Force Garbage collection to free as much memory as possible. 
+  sysinfo
+      Show MicroPython system information.
 
-Notes:
-- Use raw GitHub URLs when cloning (https://raw.githubusercontent.com/...)
-- Clone automatically saves using the file's name unless you specify one
+  dspace
+      Show flash storage usage.
+
+  ram
+      Show RAM usage.
+
+  freemem
+      Show RAM, run garbage collection, then show RAM again.
+
+  clock
+      Show CPU clock speed.
+
+  setclock <MHz>
+      Set CPU clock speed.
+      Allowed range: greater than 40 MHz and less than 260 MHz.
+
+  temp
+      Show CPU temperature using the current PicoShell implementation.
+
+  blink [times] [delay_seconds]
+      Blink the onboard LED.
+
+Hardware:
+  gpio read <pin>
+      Read a GPIO pin.
+
+  gpio write <pin> <0|1>
+      Drive a GPIO pin low or high.
+
+  gpio mode <pin> <in|out|pullup|pulldown>
+      Configure a GPIO mode.
+
+  i2c scan <bus> <sda_pin> <scl_pin> [freq_hz]
+      Scan an I2C bus for devices.
+      Example:
+        i2c scan 0 0 1 400000
+
+Updater:
+  update check
+      Compare the local version against GitHub version.txt.
+
+  update install
+      Transactionally download a newer PicoShell version and reboot.
+
+      Updates are downloaded to temporary files first and installed only
+      after every download succeeds.
+
+Development:
+  exit
+      Leave PicoShell and return to the raw MicroPython REPL.
+
+  Ctrl+C
+      Stop PicoShell and return to the raw MicroPython REPL so Thonny can
+      regain filesystem access.
