@@ -138,6 +138,7 @@ The updater stages all new files as `.new`, backs up the installed copies as `.b
 main.py
 utils.py
 boot.py
+telnet/utelnetserver.py
 docs/help.txt
 version.txt
 ```
@@ -199,9 +200,16 @@ For a headless installation, power the Pico normally and connect to its IP addre
 - Added `boot.py` to the OTA update set so future boot-script fixes can be delivered remotely.
 - Preserved `config.txt` during OTA updates so local Wi-Fi credentials and settings are not overwritten.
 
+## v0.2.2 changes
+
+- Added Telnet ECHO / SUPPRESS-GO-AHEAD negotiation so clients do not locally echo commands a second time.
+- Improved Telnet control-sequence parsing so negotiation bytes do not leak into shell input.
+- Added `telnet/utelnetserver.py` to the OTA update set.
+- Added a one-time v0.2.1 migration so existing boards can fetch the new Telnet server even though the older updater did not include it.
+
 ## Version
 
-Current version: **0.2.1**
+Current version: **0.2.2**
 
 ## License
 
