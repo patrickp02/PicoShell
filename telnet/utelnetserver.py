@@ -6,7 +6,10 @@ import gc
 from uio import IOBase
 
 
+# Keep this legacy marker for main.py's existing Telnet migration check.
+# PicoShell release version is tracked separately in version.txt.
 PICOSHELL_TELNET_VERSION = "0.2.2"
+TELNET_IMPL_VERSION = "0.3.1"
 
 IAC = 255
 DONT = 254
@@ -18,14 +21,30 @@ SE = 240
 ECHO = 1
 SUPPRESS_GO_AHEAD = 3
 
+RX_BUFFER_SIZE = 32
+TELNET_NEGOTIATION = bytes((
+    IAC, WILL, ECHO,
+    IAC, WILL, SUPPRESS_GO_AHEAD,
+    IAC, DO, SUPPRESS_GO_AHEAD,
+))
+
 last_client_socket = None
 server_socket = None
 
 
 def _send_all(sock, data):
     sent_total = 0
-    while sent_total < len(data):
-        sent = sock.send(data[sent_total:])
+    data_len = len(data)
+
+    while sent_total < data_len:
+        if sent_total == 0:
+            chunk = data
+        else:
+            # Negotiation is only 9 bytes, so this fallback slice is rare and
+            # only occurs if the socket performs a partial write.
+            chunk = data[sent_total:]
+
+        sent = sock.send(chunk)
         if not sent:
             raise OSError("Telnet negotiation send failed")
         sent_total += sent
@@ -33,37 +52,43 @@ def _send_all(sock, data):
 
 def _negotiate_telnet(sock):
     """Tell the client that the server handles echo and suppress go-ahead."""
-    _send_all(
-        sock,
-        bytes((
-            IAC, WILL, ECHO,
-            IAC, WILL, SUPPRESS_GO_AHEAD,
-            IAC, DO, SUPPRESS_GO_AHEAD,
-        )),
-    )
+    _send_all(sock, TELNET_NEGOTIATION)
 
 
 class TelnetWrapper(IOBase):
     def __init__(self, socket):
         self.socket = socket
-        self._input_buffer = b""
+        # Reuse one fixed receive buffer for the life of the connection.
+        # The old implementation created a new bytes object for every recv()
+        # and another bytes object for every consumed character via slicing.
+        self._input_buffer = bytearray(RX_BUFFER_SIZE)
+        self._input_pos = 0
+        self._input_len = 0
         self._telnet_state = 0
+
+    def _refill_input_buffer(self):
+        try:
+            count = self.socket.recv_into(self._input_buffer)
+        except OSError as e:
+            if e.args and e.args[0] == errno.EAGAIN:
+                return 0
+            raise
+
+        if not count:
+            return 0
+
+        self._input_pos = 0
+        self._input_len = count
+        return count
 
     def _next_data_byte(self):
         while True:
-            if not self._input_buffer:
-                try:
-                    self._input_buffer = self.socket.recv(64)
-                except OSError as e:
-                    if e.args and e.args[0] == errno.EAGAIN:
-                        return None
-                    raise
-
-                if not self._input_buffer:
+            if self._input_pos >= self._input_len:
+                if not self._refill_input_buffer():
                     return None
 
-            byte = self._input_buffer[0]
-            self._input_buffer = self._input_buffer[1:]
+            byte = self._input_buffer[self._input_pos]
+            self._input_pos += 1
 
             if self._telnet_state == 0:
                 if byte == IAC:
@@ -116,25 +141,42 @@ class TelnetWrapper(IOBase):
         return readbytes
 
     def write(self, data):
-        mv = memoryview(data)
+        sent_total = 0
+        data_len = len(data)
 
-        while len(mv):
+        while sent_total < data_len:
             try:
-                sent = self.socket.write(mv)
+                if sent_total == 0:
+                    chunk = data
+                else:
+                    # Most terminal writes complete in one call. Only allocate
+                    # a slice when the socket actually performs a partial write.
+                    chunk = data[sent_total:]
+
+                sent = self.socket.write(chunk)
                 if sent is None:
                     continue
-                mv = mv[sent:]
+                if not sent:
+                    raise OSError("Telnet socket write failed")
+                sent_total += sent
             except OSError as e:
                 if e.args and e.args[0] == errno.EAGAIN:
                     continue
                 raise
 
+        return sent_total
+
     def close(self):
         try:
-            self.socket.close()
+            if self.socket is not None:
+                self.socket.close()
         except Exception:
             pass
-        self._input_buffer = b""
+
+        self.socket = None
+        self._input_pos = 0
+        self._input_len = 0
+        self._telnet_state = 0
 
 
 def accept_telnet_connect(telnet_server):
@@ -149,6 +191,8 @@ def accept_telnet_connect(telnet_server):
             pass
         last_client_socket = None
 
+    # Reclaim the previous wrapper and any transient terminal allocations
+    # before accepting the replacement connection.
     gc.collect()
 
     try:
@@ -158,7 +202,8 @@ def accept_telnet_connect(telnet_server):
         _negotiate_telnet(last_client_socket)
 
         last_client_socket.setblocking(False)
-        uos.dupterm(TelnetWrapper(last_client_socket))
+        wrapper = TelnetWrapper(last_client_socket)
+        uos.dupterm(wrapper)
 
         print("[INFO] Telnet client accepted")
         print("[MEM] Free:", gc.mem_free(), "Used:", gc.mem_alloc())
@@ -205,7 +250,15 @@ def start(port=23):
     server_socket.listen(1)
     server_socket.setsockopt(socket.SOL_SOCKET, 20, accept_telnet_connect)
 
+    # getaddrinfo() and socket setup create temporary objects; clean those up
+    # while leaving the listener itself active for recovery/reconnects.
+    ai = None
+    addr = None
+    gc.collect()
+
     for i in (network.AP_IF, network.STA_IF):
         wlan = network.WLAN(i)
         if wlan.active():
             print("Telnet server started on {}:{}".format(wlan.ifconfig()[0], port))
+
+    print("[MEM] Free:", gc.mem_free(), "Used:", gc.mem_alloc())
