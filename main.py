@@ -18,6 +18,15 @@ SAFE_BOOT_CONTENT = """# PicoShell safe boot.py
 # and do not import main manually.
 """
 
+DEFAULT_AP_PASSWORD = "picoshell"
+WIFI_TIMEOUT_MS = 13000
+AP_IP_CONFIG = (
+    "192.168.4.1",
+    "255.255.255.0",
+    "192.168.4.1",
+    "192.168.4.1",
+)
+
 
 def read_local_version(path="version.txt"):
     try:
@@ -53,6 +62,128 @@ def config_bool(value, default=False):
     if value in ("0", "false", "no", "off", "n"):
         return False
     return default
+
+
+def save_wifi_config(ssid, password, path="config.txt"):
+    """Save Wi-Fi credentials while preserving PicoShell network options."""
+    telnet_auto = read_config_option(path, "TELNET_AUTO", "1")
+    ap_fallback = read_config_option(path, "AP_FALLBACK", "1")
+    ap_password = read_config_option(path, "AP_PASSWORD", DEFAULT_AP_PASSWORD)
+
+    staged = path + ".new"
+    backup = path + ".bak"
+
+    with open(staged, "w") as f:
+        f.write("SSID={}\n".format(ssid))
+        f.write("PASSWORD={}\n".format(password))
+        f.write("TELNET_AUTO={}\n".format(telnet_auto))
+        f.write("AP_FALLBACK={}\n".format(ap_fallback))
+        f.write("AP_PASSWORD={}\n".format(ap_password))
+
+    try:
+        os.remove(backup)
+    except OSError:
+        pass
+
+    had_old = False
+    try:
+        os.stat(path)
+        os.rename(path, backup)
+        had_old = True
+    except OSError:
+        pass
+
+    try:
+        os.rename(staged, path)
+    except Exception:
+        if had_old:
+            try:
+                os.rename(backup, path)
+            except Exception:
+                pass
+        raise
+
+    if had_old:
+        try:
+            os.remove(backup)
+        except OSError:
+            pass
+
+
+def fallback_ap_ssid():
+    try:
+        uid = machine.unique_id()
+        suffix = "".join("{:02X}".format(value) for value in uid[-3:])
+        return "PicoShell-{}".format(suffix)
+    except Exception:
+        return "PicoShell-Setup"
+
+
+def start_fallback_ap():
+    """Start the lightweight recovery/setup AP and return True on success."""
+    ap = network.WLAN(network.AP_IF)
+    ssid = fallback_ap_ssid()
+    password = read_config_option(
+        "config.txt",
+        "AP_PASSWORD",
+        DEFAULT_AP_PASSWORD,
+    )
+
+    if password is None or len(password) < 8 or len(password) > 63:
+        print("AP_PASSWORD must be 8-63 characters; using the default.")
+        password = DEFAULT_AP_PASSWORD
+
+    try:
+        ap.active(False)
+        ap.config(ssid=ssid, security=3, key=password)
+        ap.active(True)
+        ap.ifconfig(AP_IP_CONFIG)
+        time.sleep_ms(250)
+    except Exception as e:
+        print("Fallback AP failed:", e)
+        try:
+            ap.active(False)
+        except Exception:
+            pass
+        return False
+
+    print("Fallback AP active.")
+    print("SSID:", ssid)
+    print("IP:", ap.ifconfig()[0])
+    print("Connect to the AP, Telnet to the IP above, then run 'wifi setup'.")
+    return True
+
+
+def start_telnet_server():
+    try:
+        print("Starting Telnet server...")
+        utelnetserver.start()
+        return True
+    except Exception as e:
+        print("Telnet auto-start failed:", e)
+        return False
+
+
+def start_ap_fallback(telnet_auto):
+    try:
+        wlan.disconnect()
+    except Exception:
+        pass
+
+    try:
+        wlan.active(False)
+    except Exception:
+        pass
+
+    if not start_fallback_ap():
+        return False
+
+    if telnet_auto:
+        start_telnet_server()
+    else:
+        print("Telnet auto-start disabled in config.txt")
+
+    return True
 
 
 def ensure_safe_boot_file(path="boot.py"):
@@ -167,29 +298,67 @@ _command_count = 0
 
 
 def init_network():
-    """Connect using config.txt and optionally start Telnet for headless use."""
+    """Connect using config.txt or fall back to a local setup access point."""
+    telnet_auto = config_bool(
+        read_config_option("config.txt", "TELNET_AUTO", "1"),
+        True,
+    )
+    ap_fallback = config_bool(
+        read_config_option("config.txt", "AP_FALLBACK", "1"),
+        True,
+    )
+
+    try:
+        ap = network.WLAN(network.AP_IF)
+        if ap.active():
+            ap.active(False)
+    except Exception:
+        pass
+
     try:
         ssid, password = utils.read_wifi_config("config.txt")
-        telnet_auto = config_bool(
-            read_config_option("config.txt", "TELNET_AUTO", "1"),
-            True,
-        )
     except OSError:
-        print("config.txt not found. Skipping Wi-Fi connection.")
+        print("config.txt not found.")
+        if ap_fallback:
+            start_ap_fallback(telnet_auto)
+        else:
+            print("AP fallback disabled.")
         return
     except Exception as e:
         print("Could not read config.txt:", e)
+        if ap_fallback:
+            start_ap_fallback(telnet_auto)
+        else:
+            print("AP fallback disabled.")
+        return
+
+    if not ssid:
+        print("No Wi-Fi SSID configured.")
+        if ap_fallback:
+            start_ap_fallback(telnet_auto)
+        else:
+            print("AP fallback disabled.")
         return
 
     print("Initializing...")
-    utils.auto_connect(ssid, password)
 
-    timeout_ms = 13000
+    try:
+        utils.auto_connect(ssid, password)
+    except Exception as e:
+        print("Wi-Fi connection failed:", e)
+        if ap_fallback:
+            start_ap_fallback(telnet_auto)
+        return
+
     start = time.ticks_ms()
 
     while not wlan.isconnected():
-        if time.ticks_diff(time.ticks_ms(), start) >= timeout_ms:
+        if time.ticks_diff(time.ticks_ms(), start) >= WIFI_TIMEOUT_MS:
             print("Wi-Fi connection timed out.")
+            if ap_fallback:
+                start_ap_fallback(telnet_auto)
+            else:
+                print("AP fallback disabled.")
             return
         time.sleep_ms(250)
 
@@ -200,11 +369,7 @@ def init_network():
         machine.reset()
 
     if telnet_auto:
-        try:
-            print("Starting Telnet server...")
-            utelnetserver.start()
-        except Exception as e:
-            print("Telnet auto-start failed:", e)
+        start_telnet_server()
     else:
         print("Telnet auto-start disabled in config.txt")
 
@@ -272,11 +437,42 @@ def cmd_help(argline):
 
 
 def cmd_wifi(argline):
+    action = argline.strip().lower() if argline else ""
+
+    if action in ("setup", "set"):
+        ssid = input("Wi-Fi SSID: ").strip()
+        if not ssid:
+            print("SSID cannot be empty.")
+            return
+
+        password = input("Wi-Fi password: ")
+
+        try:
+            save_wifi_config(ssid, password)
+            print("Wi-Fi credentials saved to config.txt.")
+            print("Run 'reboot' to try the new network.")
+            print("If it fails, the PicoShell fallback AP will return.")
+        except Exception as e:
+            print("Could not save Wi-Fi configuration:", e)
+        return
+
+    if action:
+        print("Usage: wifi [setup]")
+        return
+
     utils.getWifi()
 
 
 def cmd_ifconfig(argline):
     utils.if_config()
+
+    try:
+        ap = network.WLAN(network.AP_IF)
+        if ap.active():
+            print("Access point:", ap.ifconfig())
+            print("AP SSID:", ap.config("ssid"))
+    except Exception as e:
+        print("AP status error:", e)
 
 
 def cmd_sysinfo(argline):
