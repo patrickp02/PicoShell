@@ -191,6 +191,14 @@ Pico@rp2:/$
 
 For a headless installation, power the Pico normally and connect to its IP address on TCP port 23 after it joins Wi-Fi.
 
+## v0.2.1 changes
+
+- Replaced the old REPL-binding `boot.py` with a minimal USB-safe boot file.
+- Added automatic Telnet startup for headless use, controlled with `TELNET_AUTO` in `config.txt`.
+- Made `version.txt` the single source of truth for the installed version.
+- Added `boot.py` to the OTA update set so future boot-script fixes can be delivered remotely.
+- Preserved `config.txt` during OTA updates so local Wi-Fi credentials and settings are not overwritten.
+
 ## Version
 
 Current version: **0.2.1**
