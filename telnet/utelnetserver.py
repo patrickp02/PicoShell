@@ -68,7 +68,10 @@ class TelnetWrapper(IOBase):
 
     def _refill_input_buffer(self):
         try:
-            count = self.socket.recv_into(self._input_buffer)
+            # MicroPython sockets implement the stream API directly. readinto()
+            # fills our existing bytearray instead of allocating a new bytes
+            # object for each receive.
+            count = self.socket.readinto(self._input_buffer)
         except OSError as e:
             if e.args and e.args[0] == errno.EAGAIN:
                 return 0
