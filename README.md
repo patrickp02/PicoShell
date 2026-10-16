@@ -256,9 +256,17 @@ For a headless installation, power the Pico normally and connect to TCP port 23 
 - Added `AP_FALLBACK` and `AP_PASSWORD` configuration options.
 - Extended `ifconfig` to show the active AP interface.
 
+## v0.3.1 changes
+
+- Reworked Telnet receive buffering to reuse a fixed 32-byte `bytearray` instead of allocating a new `bytes` object for each socket receive.
+- Removed per-character receive-buffer slicing to reduce heap churn and fragmentation during interactive sessions.
+- Reduced normal-path Telnet write allocations by only slicing after an actual partial socket write.
+- Added garbage collection after listener setup and before replacement client sessions while keeping the listener active for recovery/reconnects.
+- Preserved the existing listener behavior; v0.3.1 does not trade reconnectability for lower RAM usage.
+
 ## Version
 
-Current version: **0.3.0**
+Current version: **0.3.1**
 
 ## License
 
