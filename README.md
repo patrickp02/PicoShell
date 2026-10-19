@@ -1,6 +1,6 @@
 # PicoShell
 
-**PicoShell** is a lightweight UNIX-style command shell for the **Raspberry Pi Pico 2 W (RP2350)** written in MicroPython. It provides filesystem tools, Wi-Fi/network utilities, Telnet access, script execution, GPIO/I2C controls, system monitoring, CPU clock control, and a built-in self-updater.
+**PicoShell** is a lightweight UNIX-style command shell for the **Raspberry Pi Pico 2 W (RP2350)** written in MicroPython. It provides filesystem tools, Wi-Fi/network utilities, Telnet access, Bluetooth LE tools, script execution, GPIO/I2C controls, system monitoring, CPU clock control, and a built-in self-updater.
 
 ![PicoShell Screenshot](pico-shell.png)
 
@@ -10,6 +10,9 @@
 - Headless operation with automatic Telnet startup after Wi-Fi connects
 - Automatic fallback access point when the configured Wi-Fi is unavailable
 - Wi-Fi credential setup over Telnet from a phone or laptop
+- Bluetooth LE scanning, connecting, GATT discovery, reads, and writes
+- Fixed-size BLE scan cache to avoid unbounded heap growth
+- Viper-accelerated BLE advertising-field parsing
 - Persistent Wi-Fi/Telnet/AP configuration through `config.txt`
 - Filesystem navigation and file manipulation
 - Python script execution from Pico storage
@@ -72,6 +75,24 @@
 | `telnet stop` | Stop the Telnet server |
 
 > `ping` is currently a TCP connection timing test, not an ICMP echo implementation.
+
+### Bluetooth LE
+
+| Command | Description |
+|---|---|
+| `ble scan [seconds]` | Scan for nearby BLE devices; default 5 s, maximum 30 s |
+| `ble devices` | Show cached BLE scan results and device indexes |
+| `ble connect <index>` | Connect to a device from the latest scan |
+| `ble disconnect` | Disconnect the current BLE peripheral |
+| `ble status` | Show BLE state, local address, connection and RAM |
+| `ble services` | Discover GATT services on the connected device |
+| `ble chars <service_index>` | Discover characteristics in one service |
+| `ble read <value_handle>` | Read a characteristic or descriptor |
+| `ble write <value_handle> <text>` | Write UTF-8 text with response |
+| `ble writehex <value_handle> <hex>` | Write raw hexadecimal bytes with response |
+| `ble on` / `ble off` | Enable or disable the BLE radio |
+
+BLE scanning uses MicroPython's native Bluetooth stack. The advertising-data field walker is implemented with `@micropython.viper`, because that hot path is a tight byte-buffer parser. Scan results are capped at 24 devices to avoid unbounded allocations during long or busy scans.
 
 ### Scripts
 
@@ -179,6 +200,7 @@ The updater stages all new files as `.new`, backs up the installed copies as `.b
 main.py
 utils.py
 boot.py
+ble_cli.py
 telnet/utelnetserver.py
 docs/help.txt
 version.txt
@@ -189,6 +211,10 @@ version.txt
 ### Upgrading from v0.2.0
 
 The v0.2.0 updater did not include `boot.py` in its update list. v0.2.1 includes a startup migration that replaces the older REPL-binding `boot.py` with a minimal USB-safe file. Future updates also update `boot.py` directly.
+
+### Upgrading from v0.3.1
+
+The v0.3.1 updater predates `ble_cli.py`, so it cannot download that new file during the initial 0.3.2 update. After the updated `main.py` reconnects to Wi-Fi, it automatically fetches `ble_cli.py` once. From that point onward the normal updater includes the BLE module.
 
 ## Boot / USB behavior
 
@@ -205,6 +231,7 @@ exit
 ```text
 boot.py                  # Minimal USB-safe boot script
 main.py                  # CLI, command handlers, Wi-Fi/AP/Telnet startup
+ble_cli.py               # Lazy-loaded BLE central/scanner/GATT CLI tools
 utils.py                 # Filesystem, networking, GPIO/I2C, updater, and system helpers
 config.txt               # Wi-Fi, Telnet, and AP fallback settings
 docs/
@@ -220,7 +247,7 @@ pico-shell.png           # README screenshot
 PicoShell targets the **Raspberry Pi Pico 2 W**.
 
 1. Flash the current Pico 2 W MicroPython UF2.
-2. Copy `boot.py`, `main.py`, `utils.py`, `config.txt`, `version.txt`, `docs/`, and `telnet/` to the Pico filesystem.
+2. Copy `boot.py`, `main.py`, `ble_cli.py`, `utils.py`, `config.txt`, `version.txt`, `docs/`, and `telnet/` to the Pico filesystem.
 3. Either fill in `config.txt` before boot or leave `SSID` blank to use fallback AP setup.
 4. Reset the Pico.
 5. With valid credentials, PicoShell joins Wi-Fi and starts Telnet. Otherwise it broadcasts a `PicoShell-XXXXXX` setup network.
@@ -264,9 +291,18 @@ For a headless installation, power the Pico normally and connect to TCP port 23 
 - Added garbage collection after listener setup and before replacement client sessions while keeping the listener active for recovery/reconnects.
 - Preserved the existing listener behavior; v0.3.1 does not trade reconnectability for lower RAM usage.
 
+## v0.3.2 changes
+
+- Added core Bluetooth LE CLI support for scanning and connecting to peripherals.
+- Added GATT service/characteristic discovery plus read and write commands.
+- Added a fixed 24-device BLE scan cache to limit heap growth.
+- Added Viper-accelerated advertising-data field parsing.
+- Added `ble on` / `ble off` and BLE memory/status reporting.
+- Added one-time automatic `ble_cli.py` bootstrap for boards upgrading from v0.3.1.
+
 ## Version
 
-Current version: **0.3.1**
+Current version: **0.3.2**
 
 ## License
 
