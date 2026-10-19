@@ -57,6 +57,46 @@ Wi-Fi / Networking:
       Telnet auto-starts after Wi-Fi by default for headless use.
       Set TELNET_AUTO=0 in config.txt to disable auto-start.
 
+Bluetooth LE:
+  ble scan [seconds]
+      Scan for nearby BLE devices. Default: 5 seconds, max: 30.
+
+  ble devices
+      Show the cached scan results and their indexes.
+
+  ble connect <device_index>
+      Connect to a device from the most recent BLE scan.
+
+  ble disconnect
+      Disconnect the active BLE peripheral.
+
+  ble status
+      Show BLE radio/connection state and memory usage.
+
+  ble services
+      Discover GATT services on the connected device.
+
+  ble chars <service_index>
+      Discover characteristics in one service.
+
+  ble read <value_handle>
+      Read a GATT characteristic/descriptor value.
+      Handles may be decimal or 0xHEX.
+
+  ble write <value_handle> <text>
+      Write UTF-8 text with response/acknowledgement.
+
+  ble writehex <value_handle> <hex_bytes>
+      Write raw hexadecimal bytes with response/acknowledgement.
+
+  ble on
+  ble off
+      Enable or disable the BLE radio.
+
+  BLE scan results are capped at 24 devices to avoid unbounded heap growth.
+  The advertising-field parser uses MicroPython Viper for the byte-walking
+  hot path; radio scanning/connecting itself is handled by the native BLE stack.
+
 Fallback AP:
   If the saved Wi-Fi network is missing or cannot be joined within about
   13 seconds, PicoShell can start its own WPA2 setup network.
@@ -86,7 +126,7 @@ Filesystem:
       List files and directories.
 
   cd <dir>
-      Change current directory.
+      Change directory.
 
   mkdir <dir>
       Create a directory.
@@ -172,9 +212,10 @@ Updater:
   update install
       Transactionally download a newer PicoShell version and reboot.
 
-      Updates include main.py, utils.py, boot.py, telnet/utelnetserver.py,
-      docs/help.txt and version.txt. Updates are downloaded to temporary files
-      first and installed only after every download succeeds.
+      Updates include main.py, utils.py, boot.py, ble_cli.py,
+      telnet/utelnetserver.py, docs/help.txt and version.txt. Updates are
+      downloaded to temporary files first and installed only after every
+      download succeeds.
 
 Development:
   exit
