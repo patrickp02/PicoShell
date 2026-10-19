@@ -277,10 +277,39 @@ def ensure_current_telnet_server(path="telnet/utelnetserver.py"):
         return False
 
 
+def ensure_ble_module(path="ble_cli.py"):
+    """Fetch the BLE helper once for boards upgrading from pre-BLE releases."""
+    try:
+        os.stat(path)
+        return True
+    except OSError:
+        pass
+
+    sta = network.WLAN(network.STA_IF)
+    if not sta.isconnected():
+        return False
+
+    staged = path + ".new"
+    try:
+        print("Installing BLE CLI module...")
+        utils.download_file(utils.UPDATE_BASE + "/ble_cli.py", staged)
+        os.rename(staged, path)
+        print("BLE CLI module installed.")
+        return True
+    except Exception as e:
+        print("BLE CLI module install failed:", e)
+        try:
+            os.remove(staged)
+        except Exception:
+            pass
+        return False
+
+
 utils.UPDATE_FILES = (
     "main.py",
     "utils.py",
     "boot.py",
+    "ble_cli.py",
     "telnet/utelnetserver.py",
     "docs/help.txt",
     "version.txt",
@@ -299,6 +328,7 @@ sys_info = os.uname()
 led = Pin("LED", Pin.OUT)
 
 _command_count = 0
+_ble_module = None
 
 
 def init_network():
@@ -371,6 +401,10 @@ def init_network():
     if ensure_current_telnet_server():
         time.sleep_ms(300)
         machine.reset()
+
+    # v0.3.1's updater does not know about ble_cli.py. Fetch it once after
+    # upgrading so BLE works without a manual USB copy. Future updates include it.
+    ensure_ble_module()
 
     if telnet_auto:
         start_telnet_server()
@@ -634,6 +668,33 @@ def cmd_telnet(argline):
     utils.telnet_launch(argline.strip().lower())
 
 
+def cmd_ble(argline):
+    global _ble_module
+
+    if _ble_module is None:
+        try:
+            import ble_cli as module
+            _ble_module = module
+        except ImportError:
+            if not ensure_ble_module():
+                print("BLE module is missing and could not be downloaded.")
+                return
+            try:
+                import ble_cli as module
+                _ble_module = module
+            except Exception as e:
+                print("BLE is unavailable:", e)
+                return
+        except Exception as e:
+            print("BLE is unavailable:", e)
+            return
+
+    try:
+        _ble_module.command(argline)
+    except Exception as e:
+        print("BLE error:", e)
+
+
 def cmd_clear(argline):
     print("\033c", end="")
 
@@ -778,6 +839,7 @@ COMMANDS = {
     "scan": cmd_scan,
     "pmap": cmd_pmap,
     "telnet": cmd_telnet,
+    "ble": cmd_ble,
     "clear": cmd_clear,
     "about": cmd_about,
     "version": cmd_version,
