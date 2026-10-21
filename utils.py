@@ -712,7 +712,7 @@ def overclock(clock):
         print("Clock speed is set too low!")
         return
 
-    if clock >= 300:
+    if clock >= 255:
         print("Clock speed is set too high!")
         return
 
