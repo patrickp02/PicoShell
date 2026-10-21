@@ -9,7 +9,7 @@ data = bytearray(SIZE)
 for i in range(SIZE):
     data[i] = (i * 17 + 23) & 0xFF
 
-
+###
 def crc_python(buf, rounds):
     crc = 0xFFFFFFFF
 
