@@ -61,7 +61,7 @@ def crc_viper(buf, rounds: int) -> uint:
 
 print("CPU:", machine.freq() // 1000000, "MHz")
 
-
+##
 start = time.ticks_ms()
 a = crc_python(data, ROUNDS)
 python_ms = time.ticks_diff(time.ticks_ms(), start)
