@@ -30,7 +30,7 @@ def crc_python(buf, rounds):
 
 
 @micropython.viper
-def crc_viper(buf, rounds: int):
+def crc_viper(buf, rounds: int) -> uint:
     p = ptr8(buf)
     length = int(len(buf))
     crc = uint(0xFFFFFFFF)
@@ -56,7 +56,7 @@ def crc_viper(buf, rounds: int):
 
         r += 1
 
-    return int(crc ^ uint(0xFFFFFFFF))
+    return crc ^ uint(0xFFFFFFFF)
 
 
 print("CPU:", machine.freq() // 1000000, "MHz")
