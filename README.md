@@ -301,7 +301,7 @@ For a headless installation, power the Pico normally and connect to TCP port 23 
 - Added one-time automatic `ble_cli.py` bootstrap for boards upgrading from v0.3.1.
 
 ## v0.3.3 changes
-- Increased clock speed maximum from 260 -> 300
+- Decreased clock speed maximum from 260 -> 255
 
 ## Version
 
